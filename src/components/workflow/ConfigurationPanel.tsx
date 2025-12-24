@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { X, Settings, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkflowStore } from '@/store/workflowStore';
@@ -14,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DocumentUpload } from './DocumentUpload';
+import { workflowDb, Document } from '@/lib/api/workflowDb';
 
 const colorMap: Record<NodeType, string> = {
   userQuery: 'border-violet-500/50',
@@ -23,10 +26,18 @@ const colorMap: Record<NodeType, string> = {
 };
 
 export function ConfigurationPanel() {
-  const { nodes, selectedNodeId, selectNode, updateNodeConfig, deleteNode } =
+  const { nodes, selectedNodeId, selectNode, updateNodeConfig, deleteNode, currentWorkflowId } =
     useWorkflowStore();
+  const [documents, setDocuments] = useState<Document[]>([]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+
+  // Fetch documents when knowledge base is selected
+  useEffect(() => {
+    if (selectedNode?.data.type === 'knowledgeBase') {
+      workflowDb.getDocuments(currentWorkflowId || undefined).then(setDocuments);
+    }
+  }, [selectedNode?.data.type, currentWorkflowId]);
 
   if (!selectedNode) {
     return (
@@ -136,6 +147,20 @@ export function ConfigurationPanel() {
             )}
           </div>
         ))}
+
+        {/* Document Upload for Knowledge Base */}
+        {selectedNode.data.type === 'knowledgeBase' && (
+          <div className="space-y-2 pt-2 border-t border-border">
+            <Label className="text-sm font-medium text-foreground">
+              Documents
+            </Label>
+            <DocumentUpload
+              workflowId={currentWorkflowId || undefined}
+              documents={documents}
+              onDocumentsChange={setDocuments}
+            />
+          </div>
+        )}
       </div>
 
       {/* Footer Actions */}

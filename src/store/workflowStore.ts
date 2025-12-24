@@ -10,6 +10,8 @@ interface WorkflowStore {
   isWorkflowValid: boolean;
   validationErrors: string[];
   isChatOpen: boolean;
+  currentWorkflowId: string | null;
+  currentWorkflowName: string;
   
   // Node actions
   addNode: (type: NodeType, position: { x: number; y: number }) => void;
@@ -23,6 +25,8 @@ interface WorkflowStore {
   // Workflow actions
   validateWorkflow: () => boolean;
   clearWorkflow: () => void;
+  loadWorkflow: (nodes: WorkflowNode[], edges: Edge[]) => void;
+  setWorkflowMeta: (id: string | null, name: string) => void;
   
   // Chat actions
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
@@ -41,6 +45,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   isWorkflowValid: false,
   validationErrors: [],
   isChatOpen: false,
+  currentWorkflowId: null,
+  currentWorkflowName: '',
 
   addNode: (type, position) => {
     const config = getComponentConfig(type);
@@ -164,8 +170,32 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       selectedNodeId: null,
       isWorkflowValid: false,
       validationErrors: [],
+      currentWorkflowId: null,
+      currentWorkflowName: '',
     });
     nodeIdCounter = 0;
+  },
+
+  loadWorkflow: (nodes, edges) => {
+    // Find the highest node ID to continue from
+    nodes.forEach((node) => {
+      const match = node.id.match(/-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > nodeIdCounter) nodeIdCounter = num;
+      }
+    });
+
+    set({
+      nodes,
+      edges,
+      selectedNodeId: null,
+    });
+    get().validateWorkflow();
+  },
+
+  setWorkflowMeta: (id, name) => {
+    set({ currentWorkflowId: id, currentWorkflowName: name });
   },
 
   addChatMessage: (message) => {
