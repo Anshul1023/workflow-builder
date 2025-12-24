@@ -56,32 +56,70 @@ serve(async (req) => {
                 .eq('id', doc.id);
             }
           } else if (doc.file_type === 'application/pdf' || doc.name.endsWith('.pdf')) {
-            // Basic PDF text extraction
+            // For PDFs, we need to use AI vision to extract text
             const { data: fileData } = await supabase.storage
               .from('documents')
               .download(doc.file_path);
 
             if (fileData) {
+              // Convert PDF to base64 for AI processing
               const arrayBuffer = await fileData.arrayBuffer();
-              const uint8Array = new Uint8Array(arrayBuffer);
-              const decoder = new TextDecoder('utf-8', { fatal: false });
-              const pdfString = decoder.decode(uint8Array);
+              const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
               
-              // Extract readable text
-              const readableText = pdfString
-                .replace(/[^\x20-\x7E\n\r]/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .substring(0, 8000);
-              
-              if (readableText.length > 100) {
-                documentContext += `\n\n--- Document: ${doc.name} ---\n${readableText}`;
-                
-                // Cache the content
-                await supabase
-                  .from('documents')
-                  .update({ content: readableText })
-                  .eq('id', doc.id);
+              try {
+                // Use Gemini vision to extract text from PDF
+                const extractResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash',
+                    messages: [
+                      {
+                        role: 'user',
+                        content: [
+                          {
+                            type: 'text',
+                            text: 'Extract ALL text content from this PDF document. Return ONLY the extracted text, preserving the structure and formatting as much as possible. Include all details like names, dates, skills, experiences, etc.'
+                          },
+                          {
+                            type: 'file',
+                            file: {
+                              filename: doc.name,
+                              file_data: `data:application/pdf;base64,${base64}`
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    max_tokens: 8000
+                  }),
+                });
+
+                if (extractResponse.ok) {
+                  const extractData = await extractResponse.json();
+                  const extractedText = extractData.choices?.[0]?.message?.content || '';
+                  
+                  if (extractedText.length > 50) {
+                    documentContext += `\n\n--- Document: ${doc.name} ---\n${extractedText}`;
+                    
+                    // Cache the extracted content
+                    await supabase
+                      .from('documents')
+                      .update({ content: extractedText })
+                      .eq('id', doc.id);
+                    
+                    console.log(`Extracted ${extractedText.length} chars from PDF: ${doc.name}`);
+                  }
+                } else {
+                  console.error('PDF extraction failed:', await extractResponse.text());
+                  documentContext += `\n\n--- Document: ${doc.name} ---\n[PDF document - could not extract text]`;
+                }
+              } catch (extractError) {
+                console.error('PDF extraction error:', extractError);
+                documentContext += `\n\n--- Document: ${doc.name} ---\n[PDF document - extraction error]`;
               }
             }
           }
