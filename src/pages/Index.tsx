@@ -1,13 +1,33 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Helmet } from 'react-helmet-async';
+import { ComponentLibrary } from '@/components/workflow/ComponentLibrary';
+import { WorkflowCanvas } from '@/components/workflow/WorkflowCanvas';
+import { ConfigurationPanel } from '@/components/workflow/ConfigurationPanel';
+import { WorkflowToolbar } from '@/components/workflow/WorkflowToolbar';
+import { ChatModal } from '@/components/workflow/ChatModal';
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <>
+      <Helmet>
+        <title>Workflow Builder - Visual AI Workflow Designer</title>
+        <meta 
+          name="description" 
+          content="Build intelligent workflows with drag-and-drop components. Connect AI models, knowledge bases, and custom logic to create powerful automation." 
+        />
+      </Helmet>
+      
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
+        <WorkflowToolbar />
+        
+        <div className="flex-1 flex overflow-hidden">
+          <ComponentLibrary />
+          <WorkflowCanvas />
+          <ConfigurationPanel />
+        </div>
+        
+        <ChatModal />
       </div>
-    </div>
+    </>
   );
 };
 

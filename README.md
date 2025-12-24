@@ -1,73 +1,64 @@
-# Welcome to your Lovable project
+# Workflow Builder
 
-## Project info
+A visual workflow builder for creating intelligent data processing pipelines. Design, configure, and execute workflows through an intuitive drag-and-drop interface.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **Visual Workflow Canvas**: Drag-and-drop interface powered by React Flow
+- **Four Core Components**:
+  - **User Query**: Entry point for user inputs
+  - **Knowledge Base**: Document processing and vector-based retrieval
+  - **LLM Engine**: Language model integration for intelligent responses
+  - **Output**: Response display in chat format
+- **Real-time Validation**: Automatic workflow validation with error reporting
+- **Configuration Panel**: Dynamic settings for each component
+- **Chat Interface**: Interactive testing of your workflows
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- React.js with TypeScript
+- React Flow for visual workflow editing
+- Zustand for state management
+- Tailwind CSS for styling
+- Vite for build tooling
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Start development server: `npm run dev`
+4. Open `http://localhost:5173`
 
-**Use your preferred IDE**
+## Building Workflows
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. Drag components from the left panel onto the canvas
+2. Connect components by dragging from output handles to input handles
+3. Click on any component to configure its settings
+4. Use the "Validate" button to check your workflow
+5. Click "Chat with Workflow" to test your pipeline
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Component Configuration
 
-Follow these steps:
+### User Query
+- Input placeholder text
+- Maximum character length
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Knowledge Base
+- Embedding model selection (OpenAI, Gemini, Cohere)
+- Chunk size for document processing
+- Top K results for retrieval
+- Context passing toggle
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### LLM Engine
+- Model selection (GPT-4, GPT-3.5, Gemini Pro, Claude 3)
+- System prompt customization
+- Temperature control
+- Web search integration
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Output
+- Output format (Plain Text, Markdown, JSON)
+- Response streaming toggle
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## License
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+MIT License
