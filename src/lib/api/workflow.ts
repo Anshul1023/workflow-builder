@@ -23,6 +23,7 @@ export const workflowApi = {
     messages,
     systemPrompt,
     model,
+    documentIds,
     onDelta,
     onDone,
     onError,
@@ -30,6 +31,7 @@ export const workflowApi = {
     messages: Message[];
     systemPrompt?: string;
     model?: string;
+    documentIds?: string[];
     onDelta: (text: string) => void;
     onDone: () => void;
     onError: (error: string) => void;
@@ -41,7 +43,7 @@ export const workflowApi = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages, systemPrompt, model }),
+        body: JSON.stringify({ messages, systemPrompt, model, documentIds }),
       });
 
       if (resp.status === 429) {
@@ -53,7 +55,8 @@ export const workflowApi = {
         return;
       }
       if (!resp.ok || !resp.body) {
-        onError('Failed to start chat stream');
+        const errorData = await resp.json().catch(() => ({}));
+        onError(errorData.error || 'Failed to start chat stream');
         return;
       }
 

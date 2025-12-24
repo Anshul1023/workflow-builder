@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2, Bot, User, Sparkles } from 'lucide-react';
+import { X, Send, Loader2, Bot, User, Sparkles, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useWorkflowStore } from '@/store/workflowStore';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { workflowApi } from '@/lib/api/workflow';
+import { workflowDb, Document } from '@/lib/api/workflowDb';
 import { toast } from 'sonner';
 
 export function ChatModal() {
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [documents, setDocuments] = useState<Document[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -21,7 +23,15 @@ export function ChatModal() {
     addChatMessage,
     nodes,
     edges,
+    currentWorkflowId,
   } = useWorkflowStore();
+
+  // Fetch documents when chat opens
+  useEffect(() => {
+    if (isChatOpen) {
+      workflowDb.getDocuments(currentWorkflowId || undefined).then(setDocuments);
+    }
+  }, [isChatOpen, currentWorkflowId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,14 +53,20 @@ export function ChatModal() {
     
     // Build system prompt from workflow
     let systemPrompt = llmNode?.data.config?.systemPrompt || 'You are a helpful AI assistant.';
-    if (knowledgeBaseNode?.data.config?.passContext) {
-      systemPrompt += `\n\nKnowledge Base: ${knowledgeBaseNode.data.config.name || 'Default'}`;
-    }
+    
+    // Get document IDs if knowledge base is configured
+    const documentIds = knowledgeBaseNode?.data.config?.passContext !== false 
+      ? documents.map(d => d.id) 
+      : [];
 
-    // Show processing status
+    // Show processing status with document count
+    const statusMsg = documentIds.length > 0 
+      ? `🔄 Processing with ${documentIds.length} document(s)...`
+      : `🔄 Processing through workflow...`;
+    
     addChatMessage({
       role: 'system',
-      content: `🔄 Processing through workflow...`,
+      content: statusMsg,
     });
 
     try {
@@ -60,6 +76,7 @@ export function ChatModal() {
         messages: [{ role: 'user', content: userMessage }],
         systemPrompt,
         model: llmNode?.data.config?.model || 'google/gemini-2.5-flash',
+        documentIds,
         onDelta: (text) => {
           fullContent += text;
           setStreamingContent(fullContent);
@@ -98,6 +115,12 @@ export function ChatModal() {
               <h2 className="font-semibold text-foreground">Workflow Chat</h2>
               <p className="text-xs text-muted-foreground">
                 {nodes.length} components • {edges.length} connections
+                {documents.length > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    {documents.length} doc{documents.length !== 1 ? 's' : ''}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -121,8 +144,9 @@ export function ChatModal() {
                   Start a conversation
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Your query will be processed through the workflow you've built.
-                  Ask anything to get started!
+                  {documents.length > 0 
+                    ? `Ask questions about your ${documents.length} uploaded document${documents.length !== 1 ? 's' : ''}.`
+                    : 'Your query will be processed through the workflow you\'ve built.'}
                 </p>
               </div>
             )}
@@ -210,7 +234,7 @@ export function ChatModal() {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={documents.length > 0 ? "Ask about your documents..." : "Type your message..."}
               disabled={isProcessing}
               className="flex-1 bg-surface-2 border-border focus:ring-primary"
             />
