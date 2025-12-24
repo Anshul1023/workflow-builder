@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, systemPrompt, model } = await req.json();
+    const { messages, systemPrompt, model, documentIds } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -19,6 +20,83 @@ serve(async (req) => {
     }
 
     console.log('Processing chat request with', messages.length, 'messages');
+
+    // Fetch document content if documentIds provided
+    let documentContext = '';
+    if (documentIds && documentIds.length > 0) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      console.log('Fetching documents:', documentIds);
+
+      const { data: documents, error: docError } = await supabase
+        .from('documents')
+        .select('*')
+        .in('id', documentIds);
+
+      if (!docError && documents) {
+        for (const doc of documents) {
+          if (doc.content) {
+            documentContext += `\n\n--- Document: ${doc.name} ---\n${doc.content}`;
+          } else if (doc.file_type?.startsWith('text/') || doc.name.endsWith('.txt') || doc.name.endsWith('.md')) {
+            // Download and read text files
+            const { data: fileData } = await supabase.storage
+              .from('documents')
+              .download(doc.file_path);
+
+            if (fileData) {
+              const text = await fileData.text();
+              documentContext += `\n\n--- Document: ${doc.name} ---\n${text}`;
+              
+              // Cache the content
+              await supabase
+                .from('documents')
+                .update({ content: text })
+                .eq('id', doc.id);
+            }
+          } else if (doc.file_type === 'application/pdf' || doc.name.endsWith('.pdf')) {
+            // Basic PDF text extraction
+            const { data: fileData } = await supabase.storage
+              .from('documents')
+              .download(doc.file_path);
+
+            if (fileData) {
+              const arrayBuffer = await fileData.arrayBuffer();
+              const uint8Array = new Uint8Array(arrayBuffer);
+              const decoder = new TextDecoder('utf-8', { fatal: false });
+              const pdfString = decoder.decode(uint8Array);
+              
+              // Extract readable text
+              const readableText = pdfString
+                .replace(/[^\x20-\x7E\n\r]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .substring(0, 8000);
+              
+              if (readableText.length > 100) {
+                documentContext += `\n\n--- Document: ${doc.name} ---\n${readableText}`;
+                
+                // Cache the content
+                await supabase
+                  .from('documents')
+                  .update({ content: readableText })
+                  .eq('id', doc.id);
+              }
+            }
+          }
+        }
+      }
+      
+      console.log('Document context length:', documentContext.length);
+    }
+
+    // Build enhanced system prompt with document context
+    let enhancedSystemPrompt = systemPrompt || 'You are a helpful AI assistant. Keep answers clear and concise.';
+    
+    if (documentContext) {
+      enhancedSystemPrompt += `\n\n## Knowledge Base Documents\nUse the following document content to answer questions:\n${documentContext}`;
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -31,7 +109,7 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: systemPrompt || 'You are a helpful AI assistant. Keep answers clear and concise.' 
+            content: enhancedSystemPrompt
           },
           ...messages,
         ],
