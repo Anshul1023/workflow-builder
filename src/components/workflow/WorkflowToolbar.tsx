@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { WorkflowSaveLoad } from './WorkflowSaveLoad';
 
 export function WorkflowToolbar() {
   const {
@@ -16,6 +17,7 @@ export function WorkflowToolbar() {
     validateWorkflow,
     clearWorkflow,
     toggleChat,
+    currentWorkflowName,
   } = useWorkflowStore();
 
   const handleValidate = () => {
@@ -36,7 +38,9 @@ export function WorkflowToolbar() {
             <div className="h-3 w-3 rounded-sm bg-primary" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-foreground">Workflow Builder</h1>
+            <h1 className="text-sm font-semibold text-foreground">
+              {currentWorkflowName || 'Workflow Builder'}
+            </h1>
             <p className="text-xs text-muted-foreground">
               {nodes.length} component{nodes.length !== 1 ? 's' : ''}
             </p>
@@ -72,6 +76,10 @@ export function WorkflowToolbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <WorkflowSaveLoad />
+
+        <div className="w-px h-6 bg-border mx-1" />
+
         <Button
           variant="outline"
           size="sm"
