@@ -123,12 +123,12 @@ export const COMPONENT_CONFIGS: ComponentConfig[] = [
         label: 'Model',
         type: 'select',
         options: [
-          { value: 'gpt-4', label: 'GPT-4' },
-          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-          { value: 'gemini-pro', label: 'Gemini Pro' },
-          { value: 'claude-3', label: 'Claude 3' },
+          { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (Fast)' },
+          { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Powerful)' },
+          { value: 'openai/gpt-5', label: 'GPT-5 (Best)' },
+          { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (Balanced)' },
         ],
-        defaultValue: 'gpt-4',
+        defaultValue: 'google/gemini-2.5-flash',
       },
       {
         id: 'systemPrompt',
