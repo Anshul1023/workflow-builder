@@ -5,10 +5,13 @@ import { Input } from '@/components/ui/input';
 import { useWorkflowStore } from '@/store/workflowStore';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { workflowApi } from '@/lib/api/workflow';
+import { toast } from 'sonner';
 
 export function ChatModal() {
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -22,7 +25,7 @@ export function ChatModal() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  }, [chatMessages, streamingContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,61 +35,52 @@ export function ChatModal() {
     setInput('');
     addChatMessage({ role: 'user', content: userMessage });
     setIsProcessing(true);
+    setStreamingContent('');
 
-    // Simulate workflow processing
-    await simulateWorkflowExecution(userMessage);
-    setIsProcessing(false);
-  };
-
-  const simulateWorkflowExecution = async (query: string) => {
-    // Find the workflow path
-    const userQueryNode = nodes.find((n) => n.data.type === 'userQuery');
-    const knowledgeBaseNode = nodes.find((n) => n.data.type === 'knowledgeBase');
+    // Get LLM config from workflow
     const llmNode = nodes.find((n) => n.data.type === 'llmEngine');
-    const outputNode = nodes.find((n) => n.data.type === 'output');
-
-    // Simulate processing steps
-    addChatMessage({
-      role: 'system',
-      content: `🔄 Processing query through workflow...`,
-    });
-
-    await new Promise((r) => setTimeout(r, 500));
-
-    if (knowledgeBaseNode) {
-      addChatMessage({
-        role: 'system',
-        content: `📚 Searching knowledge base (${knowledgeBaseNode.data.config.embeddingModel || 'default'} embeddings)...`,
-      });
-      await new Promise((r) => setTimeout(r, 800));
+    const knowledgeBaseNode = nodes.find((n) => n.data.type === 'knowledgeBase');
+    
+    // Build system prompt from workflow
+    let systemPrompt = llmNode?.data.config?.systemPrompt || 'You are a helpful AI assistant.';
+    if (knowledgeBaseNode?.data.config?.passContext) {
+      systemPrompt += `\n\nKnowledge Base: ${knowledgeBaseNode.data.config.name || 'Default'}`;
     }
 
+    // Show processing status
     addChatMessage({
       role: 'system',
-      content: `🧠 Generating response with ${llmNode?.data.config.model || 'GPT-4'}...`,
+      content: `🔄 Processing through workflow...`,
     });
-    await new Promise((r) => setTimeout(r, 1200));
 
-    // Generate a mock response based on the query
-    const response = generateMockResponse(query, llmNode?.data.config, knowledgeBaseNode?.data.config);
-
-    addChatMessage({
-      role: 'assistant',
-      content: response,
-    });
-  };
-
-  const generateMockResponse = (query: string, llmConfig?: any, kbConfig?: any) => {
-    const model = llmConfig?.model || 'GPT-4';
-    const hasContext = kbConfig?.passContext !== false;
-
-    const responses = [
-      `Based on my analysis${hasContext ? ' and the relevant context from the knowledge base' : ''}, here's what I found:\n\n${query.toLowerCase().includes('how') ? 'The process involves several key steps that work together to achieve the desired outcome. Each step builds upon the previous one to ensure a comprehensive solution.' : query.toLowerCase().includes('what') ? 'This refers to a fundamental concept that plays a crucial role in the overall system. Understanding this helps in making informed decisions.' : 'After careful consideration of all available information, I can provide you with a detailed response that addresses your specific needs.'}`,
-      `Great question! ${hasContext ? 'After reviewing the relevant documents, ' : ''}I can explain this in detail:\n\nThe key points to understand are:\n1. The foundation of the concept\n2. How it applies in practical scenarios\n3. Best practices for implementation`,
-      `I've processed your query${hasContext ? ' against the knowledge base' : ''} and here's my response:\n\nThis is an important topic that requires careful consideration. The main aspects to focus on include understanding the core principles and applying them effectively.`,
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
+    try {
+      let fullContent = '';
+      
+      await workflowApi.streamChat({
+        messages: [{ role: 'user', content: userMessage }],
+        systemPrompt,
+        model: llmNode?.data.config?.model || 'google/gemini-2.5-flash',
+        onDelta: (text) => {
+          fullContent += text;
+          setStreamingContent(fullContent);
+        },
+        onDone: () => {
+          setStreamingContent('');
+          addChatMessage({ role: 'assistant', content: fullContent });
+          setIsProcessing(false);
+        },
+        onError: (error) => {
+          toast.error(error);
+          setIsProcessing(false);
+          setStreamingContent('');
+        },
+      });
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast.error('Failed to get response');
+      setIsProcessing(false);
+      setStreamingContent('');
+    }
   };
 
   if (!isChatOpen) return null;
@@ -120,7 +114,7 @@ export function ChatModal() {
         {/* Messages */}
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
-            {chatMessages.length === 0 && (
+            {chatMessages.length === 0 && !streamingContent && (
               <div className="text-center py-12">
                 <Bot className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="font-medium text-foreground mb-2">
@@ -179,7 +173,19 @@ export function ChatModal() {
               </div>
             ))}
 
-            {isProcessing && (
+            {/* Streaming response */}
+            {streamingContent && (
+              <div className="flex gap-3 animate-fade-in">
+                <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
+                <div className="max-w-[80%] bg-surface-2 rounded-lg px-4 py-3 text-sm text-foreground">
+                  <p className="whitespace-pre-wrap">{streamingContent}</p>
+                </div>
+              </div>
+            )}
+
+            {isProcessing && !streamingContent && (
               <div className="flex gap-3 animate-fade-in">
                 <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
                   <Loader2 className="h-4 w-4 text-primary animate-spin" />
