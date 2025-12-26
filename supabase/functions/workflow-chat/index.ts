@@ -137,6 +137,23 @@ serve(async (req) => {
       enhancedSystemPrompt += `\n\n## Knowledge Base Documents\nUse the following document content to answer questions:\n${documentContext}`;
     }
 
+    // Validate model - only allow supported Lovable AI models
+    const validModels = [
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-pro', 
+      'google/gemini-2.5-flash-lite',
+      'google/gemini-3-pro-preview',
+      'openai/gpt-5',
+      'openai/gpt-5-mini',
+      'openai/gpt-5-nano'
+    ];
+    const requestedModel = model || 'google/gemini-2.5-flash';
+    const selectedModel = validModels.includes(requestedModel) ? requestedModel : 'google/gemini-2.5-flash';
+    
+    if (requestedModel !== selectedModel) {
+      console.log(`Invalid model "${requestedModel}" requested, falling back to "${selectedModel}"`);
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -144,7 +161,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: model || 'google/gemini-2.5-flash',
+        model: selectedModel,
         messages: [
           { 
             role: 'system', 
